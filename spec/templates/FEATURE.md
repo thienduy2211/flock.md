@@ -1,35 +1,36 @@
-# <Name> — <what it is, in one clause>
+# <Name> - <what it is, in one clause>
 
 **Status:** Design <YYYY-MM-DD>
-**Target:** <version or milestone, the short code alone — optional, delete if unused>
-**Brd:** <link to the brd this descends from — optional, delete if unused>
-**Blueprint:** —
-**Worklog:** —
+**Target:** <version or milestone, the short code alone; optional>
+**Brd:** <business requirement link; optional>
+**Blueprint:** -
+**Worklog:** -
 
-> Boundary: <adjacent documents this one deliberately does not cover; link them>.
+Add `**Handoff:** v1` only for the optional Handoff extension. When closing governed
+work, add `**Evidence:**` linking to its own worklog verification heading. Delete
+unused labels and template guidance. The feature owns lifecycle Status and Target.
 
 ## Context
 
-<The problem, stated with dates and measurements where possible. Why is this worth
-doing now?>
+<Problem, users and relevant observations.>
 
-## Decisions *(decided <YYYY-MM-DD>)*
+## Decisions
 
-<Decisions made so far. Record seriously considered alternatives and why they were
-rejected — the rejected option is what stops the same debate from reopening.>
+<Current approved decisions, dates, owner and rejected alternatives. Supersede old
+decisions in place. Do not infer approval from existing implementation.>
 
 ## Goal
 
-<What done looks like, observable from outside the code.>
+<Observable user outcome.>
 
-Out of scope: <what this work deliberately does not cover>.
+Out of scope: <explicit boundary and related documents>.
 
-## Work
+## Acceptance criteria
 
-- [ ] **B1 — <title>:** <scope of the round; each round stands alone>
-- [ ] **B2 — <title>:** <scope>
+- [ ] <Observable requirement and how to verify it.>
+- [ ] <Required human acceptance, or explicitly not required.>
 
-## Definition of Done
+## Implementation
 
-- [ ] <An observable behavior, or a command that proves it>
-- [ ] <…>
+<Follow the blueprint. Its Rounds list is the only implementation progress
+checklist. Do not copy B1/B2 checkboxes here.>

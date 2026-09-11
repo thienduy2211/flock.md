@@ -1,37 +1,38 @@
-# <Name> — Implementation Blueprint
+# <Name> - Implementation Blueprint
 
-**Status:** Design <YYYY-MM-DD>
 **Feature:** [<NAME>.md](../feature/<NAME>.md)
+
+The feature owns lifecycle Status; this blueprint owns implementation rounds.
+Delete this guidance when filling in.
 
 ## Current state (measured)
 
-<What the code does today — from reading it now, with file paths and numbers, not from
-memory. Where this differs from the feature document, fix the feature document first.>
+<Describe code observed now, with paths and evidence. Correct inaccurate current-
+state descriptions. If code differs from an approved requirement, record the
+mismatch; never rewrite requirements or acceptance criteria to justify a bug.>
 
 ## Decisions
 
-<Numbered architecture decisions — settled here, not re-litigated while coding.>
-
-1. <…>
-2. <…>
+<Approved implementation decisions, dates and rejected alternatives. Link to the
+feature for product decisions rather than create competing copies.>
 
 ## Rounds
 
-- [ ] B1 — <title>
-- [ ] B2 — <title>
+- [ ] B1 - <title>
+- [ ] B2 - <title>
 
-<Check a round off when it closes — the same moment its worklog entry is appended.
-Tools read checked / total under this heading as task progress (§3.5).>
+<The only implementation progress list. Check a round when its outcome is logged.
+A checkpoint can be recorded without checking off an unfinished round.>
 
-### B1 — <title>
+### B1 - <title>
 
-<Files touched. The round stands alone: it builds green and is committable by itself.>
+<Files, dependencies, verification and an independently reviewable outcome.>
 
-### B2 — <title>
+### B2 - <title>
 
-<…>
+<Files, verification and outcome.>
 
-## Risks & traps
+## Risks and guardrails
 
-<What is fragile, which existing tests guard this, and what is deliberately not
-touched.>
+<Existing changes to preserve, sensitive operations, relevant tests and decisions
+that must not be silently reversed.>

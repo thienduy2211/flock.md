@@ -1,0 +1,158 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { check, exitCode } from './check.mjs';
+import { section, labels, tables, rounds, statusLabel, vocabulary, anchorSection } from './lib/markdown.mjs';
+import { localRef } from './lib/files.mjs';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const map = '| Type | Where | Answers |\n|---|---|---|\n| feature | docs/feature/ | What? |\n| blueprint | docs/blueprint/ | How? |\n| worklog | docs/worklog/ | History? |\n| index | docs/ROADMAP.md | Where? |\n| state | docs/STATE.md | Resume? |';
+const flock = `# FLOCK.md\n\n> flock: 0.3 | profile: flow\n\n## Docs Map\n\n${map}\n\n## Index\n\n[Roadmap](docs/ROADMAP.md)\n\n## Status Labels\n\n\`Design\` | \`Building\` | \`Review\` | \`Blocked\` | \`Done <date>\` | \`Parked\`\n\n## Handoff\n\n**State:** [State](docs/STATE.md)\n**Done labels:** \`Done\`\n`;
+const code = 'export const parse = value => value.trim();\n';
+const digest = createHash('sha256').update(code).digest('hex');
+function fixture(t, initial = true) {
+  const root = mkdtempSync(join(tmpdir(), 'flock-test-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const write = (p, value) => { mkdirSync(dirname(join(root, p)), { recursive: true }); writeFileSync(join(root, p), value); };
+  const edit = (p, a, b) => write(p, readFileSync(join(root, p), 'utf8').replace(a, b));
+  if (initial) write('FLOCK.md', flock);
+  return { root, write, edit, run: opts => check(root, opts) };
+}
+function active(t) {
+  const f = fixture(t);
+  f.write('src/import.mjs', code);
+  f.write('docs/feature/IMPORT.md', '# Import\n\n**Handoff:** v1\n**Status:** Building\n**Target:** v1\n**Blueprint:** [Plan](../blueprint/IMPORT.md)\n**Worklog:** [Log](../worklog/IMPORT.md)\n\n## Goal\nReject duplicate rows.\n');
+  f.write('docs/blueprint/IMPORT.md', '# Plan\n\n**Feature:** [Import](../feature/IMPORT.md)\n\n## Rounds\n- [x] B1 - parser\n- [ ] B2 - validation\n\n## Definition of Done\n- [ ] unrelated checklist\n');
+  f.write('docs/worklog/IMPORT.md', `# Log\n\n**Feature:** [Import](../feature/IMPORT.md)\n\n## Verification B2\n\n**Result:** FAIL\n**Checks:** node --test import.test.mjs; duplicate rows still accepted.\n**Checked:** 2026-09-10T01:00:00Z\n**Code ref:** working-tree\n**Acceptance:** PENDING\n\n| File | SHA256 |\n|---|---|\n| [Parser](../../src/import.mjs) | ${digest} |\n`);
+  f.write('docs/ROADMAP.md', '# Roadmap\n\n| Item | Target | Status | Docs |\n|---|---|---|---|\n| Import | v1 | Building | [Import](feature/IMPORT.md) |\n');
+  f.write('docs/STATE.md', '# Current work\n\n**Feature:** [Import](feature/IMPORT.md)\n**Blueprint:** [Plan](blueprint/IMPORT.md)\n**Worklog:** [Log](worklog/IMPORT.md)\n**Round:** B2\n**Updated:** 2026-09-10T01:05:00Z\n**Branch:** main\n**Base commit:** not-a-git-repo\n**Code ref:** working-tree\n**Workspace:** same-worktree\n**Verification:** [Latest](worklog/IMPORT.md#verification-b2)\n\n## Checkpoint\nB1 closed; B2 duplicate validation remains broken.\n\n## Next action\nReject duplicates in src/import.mjs, then rerun the import test.\n\n## Working tree\nsrc/import.mjs has the unfinished B2 change.\n\n## Blockers\nKnown duplicate validation failure; no external blockers.\n\n## Guardrails\nNever silently drop duplicate rows; preserve existing edits.\n');
+  return f;
+}
+function done(t) {
+  const f = active(t);
+  f.edit('docs/feature/IMPORT.md', '**Status:** Building', '**Status:** Done 2026-09-10\n**Evidence:** [Checked](../worklog/IMPORT.md#verification-b2)');
+  f.edit('docs/ROADMAP.md', '| Building |', '| Done 2026-09-10 |');
+  f.edit('docs/blueprint/IMPORT.md', '[ ] B2', '[x] B2');
+  f.edit('docs/worklog/IMPORT.md', '**Result:** FAIL', '**Result:** PASS');
+  f.edit('docs/worklog/IMPORT.md', '**Acceptance:** PENDING', '**Acceptance:** PASS');
+  return f;
+}
+const includes = (list, word) => list.some(s => s.includes(word));
+const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
+const cli = args => spawnSync(process.execPath, [join(here, 'check.mjs'), ...args], { encoding: 'utf8', env });
+
+test('missing FLOCK is a MUST violation', t => { const f = fixture(t, false); assert.equal(exitCode(f.run()), 1); });
+test('prose-only Docs Map fails the required table', t => { const f = fixture(t); f.write('FLOCK.md', '# FLOCK.md\n## Docs Map\nNothing here.'); assert.equal(f.run().must.length, 1); });
+test('two-column map does not conform', t => { const f = fixture(t); f.write('FLOCK.md', '# FLOCK.md\n## Docs Map\n| Type | Where |\n|---|---|\n| feature | docs/feature |'); assert.equal(exitCode(f.run()), 1); });
+test('map in a fence is not a map', t => { const f = fixture(t); f.write('FLOCK.md', `# Example\n\`\`\`md\n## Docs Map\n${map}\n\`\`\``); assert.equal(exitCode(f.run()), 1); });
+test('fresh flow adoption with planned directories remains valid', t => { const f = fixture(t); assert.equal(exitCode(f.run()), 0); assert(includes(f.run().warnings, 'does not exist yet')); });
+test('fresh minimal core remains valid without index', t => { const f = fixture(t); f.write('FLOCK.md', '# FLOCK.md\n> flock: 0.1 | profile: core\n## Docs Map\n| Type | Where | Answers |\n|---|---|---|\n| notes | docs/ | Why? |'); assert.equal(exitCode(f.run()), 0); });
+test('annotated missing Where is SHOULD warning, not MUST', t => { const f = fixture(t); f.edit('FLOCK.md', 'docs/feature/', 'docs/feature/ (20 files)'); assert.equal(f.run().must.length, 0); assert(includes(f.run().warnings, 'does not exist yet')); });
+test('missing legitimate path with spaces is not a MUST', t => { const f = fixture(t); f.edit('FLOCK.md', 'docs/feature/', 'docs/design notes/'); assert.equal(exitCode(f.run()), 0); });
+test('unknown spec version is readable', t => { const f = fixture(t); f.edit('FLOCK.md', 'flock: 0.3', 'flock: 9.7'); assert.equal(exitCode(f.run()), 0); assert(includes(f.run().warnings, 'Unknown spec version')); });
+test('unknown labels are preserved and ignored', t => { const f = active(t); f.edit('docs/feature/IMPORT.md', '**Target:** v1', '**Target:** v1\n**Owner nickname:** custom'); assert.equal(exitCode(f.run()), 0); });
+test('one-round progress excludes DoD checklist', t => { const r = active(t).run(); assert.equal(r.metrics.roundsDone, 1); assert.equal(r.metrics.roundsTotal, 2); });
+test('backlink MUST is enforced even with passing document counts', t => { const f = active(t); f.edit('docs/blueprint/IMPORT.md', '[Import](../feature/IMPORT.md)', 'absent'); assert(includes(f.run().must, 'must link')); });
+test('prose backlink satisfies base spec, label is only SHOULD', t => { const f = active(t); f.edit('docs/blueprint/IMPORT.md', '**Feature:**', 'Related feature:'); assert.equal(f.run().must.length, 0); });
+test('unreachable mapped worklog still needs a feature backlink', t => { const f = active(t); f.write('docs/worklog/ORPHAN.md', '# Orphan\nNo links.'); assert(includes(f.run().must, 'ORPHAN')); });
+test('house blueprint label is not inferred from filename', t => { const f = active(t); f.edit('docs/feature/IMPORT.md', '**Blueprint:**', '**Implementation plan:**'); assert.equal(f.run().metrics.blueprintLinks, 0); });
+test('out-of-repo index is not replaced with a default', t => { const f = fixture(t); f.edit('FLOCK.md', '[Roadmap](docs/ROADMAP.md)', '[Roadmap](../elsewhere/ROADMAP.md)'); const r = f.run(); assert.equal(exitCode(r), 0); assert(includes(r.warnings, 'outside the repository')); assert(includes(r.lines, 'Index: undeclared')); });
+test('glob * discovers files rather than a fake directory', t => { const f = active(t); f.edit('FLOCK.md', 'docs/feature/', 'docs/feature/*.md'); assert.equal(f.run().metrics.features, 1); });
+test('glob ** includes root and nested docs', t => { const f = active(t); f.edit('FLOCK.md', 'docs/feature/', 'docs/feature/**/*.md'); f.write('docs/feature/nested/OTHER.md', '# Other\n**Status:** Design'); assert.equal(f.run().metrics.features, 2); });
+test('directory scans recurse and resolve links from each file', t => { const f = active(t); f.write('docs/feature/nested/OTHER.md', '# Other\n**Blueprint:** [Plan](../../blueprint/IMPORT.md)'); assert.equal(f.run().metrics.blueprintLinks, 2); });
+test('unsupported glob is explicit incomplete error', t => { const f = fixture(t); f.edit('FLOCK.md', 'docs/feature/', 'docs/feature/{a,b}/*.md'); assert.equal(exitCode(f.run()), 2); });
+test('500 is no longer a silent ceiling', t => { const f = fixture(t); for (let i = 0; i < 501; i++) f.write(`docs/feature/${i}.md`, '# Small'); assert.equal(f.run().metrics.features, 501); });
+test('scan limit produces incomplete exit, never silent truncation', t => { const f = active(t); f.write('docs/feature/TWO.md', '# Two'); assert.equal(exitCode(f.run({ limits: { maxFiles: 1 } })), 2); });
+test('oversize document produces incomplete exit', t => { assert.equal(exitCode(active(t).run({ limits: { maxBytes: 20 } })), 2); });
+test('symlink outside repo is never read', t => { const f = fixture(t); const outside = fixture(t, false); outside.write('secret.md', '# Secret\n**Status:** Done'); mkdirSync(join(f.root, 'docs/feature'), { recursive: true }); try { symlinkSync(join(outside.root, 'secret.md'), join(f.root, 'docs/feature/secret.md')); } catch (e) { if (['EPERM', 'EACCES'].includes(e.code)) { t.skip('symlink permission unavailable'); return; } throw e; } const r = f.run(); assert.equal(exitCode(r), 2); assert.equal(r.metrics.features, 0); assert(includes(r.errors, 'Symlink not followed')); });
+test('symlink FLOCK is rejected before reading', t => { const f = fixture(t, false); const o = fixture(t); try { symlinkSync(join(o.root, 'FLOCK.md'), join(f.root, 'FLOCK.md')); } catch (e) { if (['EPERM', 'EACCES'].includes(e.code)) { t.skip('symlink permission unavailable'); return; } throw e; } assert.equal(exitCode(f.run()), 2); });
+test('unsafe and percent-encoded paths are rejected', () => { for (const p of ['../../outside.md', '%2Fetc/passwd', '%2e%2e/%2e%2e/secret', 'C:/secret', 'https://host/file', '%00bad', '..%5c..%5csecret', 'file:stream']) assert.equal(localRef('docs/A.md', p), undefined); });
+test('legitimate parent-relative link stays within repo', () => { assert.equal(localRef('docs/feature/A.md', '../blueprint/A.md').path, 'docs/blueprint/A.md'); });
+test('code fence and comment labels never count', () => { assert.deepEqual(labels('# Title\n```md\n**Status:** Done\n```\n<!--\n**Status:** Done\n-->\n**Status:** Building').values, { Status: 'Building' }); });
+test('malformed fence close does not expose example metadata', () => { assert.deepEqual(labels('# Title\n```md\n```not-a-close\n**Status:** Done\n```').values, {}); });
+test('indented example labels never count', () => { assert.deepEqual(labels('# Title\n    **Status:** Done').values, {}); });
+test('CRLF and BOM work', t => { const f = active(t); f.write('FLOCK.md', '\uFEFF' + flock.replaceAll('\n', '\r\n')); assert.equal(exitCode(f.run()), 0); });
+test('escaped table pipes do not split cells', () => { assert.equal(tables('| Type | Where | Answers |\n|---|---|---|\n| notes | docs/ | A \\| B |')[0].rows[0].length, 3); });
+test('fake index header in fenced example is ignored', t => { const f = active(t); f.write('docs/ROADMAP.md', '```md\n| Item | Status | Docs |\n|---|---|---|\n```'); assert(includes(f.run().lines, 'absent (opt-in)')); });
+test('vocabulary comes only from first table column', () => { assert.deepEqual(vocabulary('| Label | Meaning |\n|---|---|\n| `Shipped <date>` | Contains `not a label` |\n\n`also not a label`'), ['Shipped']); });
+test('status requires exact label or actual date', () => { assert.equal(statusLabel('DoneWrong', ['Done']), undefined); assert.equal(statusLabel('Done 2026-02-30', ['Done']), undefined); assert.equal(statusLabel('Done 2026-09-10', ['Done']), 'Done'); });
+test('custom non-English and underscore status labels work', () => { assert.equal(statusLabel('\u0110ang_lam', ['\u0110ang_lam']), '\u0110ang_lam'); });
+test('rounds ignores fenced tasks and ends at same-level heading', () => { const s = '# Rounds\n- [x] B1 done\n## Sub\n- [ ] B2 next\n```md\n- [ ] X\n```\n# Other\n- [ ] Y'; assert.equal(rounds(s).length, 2); });
+test('duplicate headings have deterministic evidence anchors', () => { assert.equal(anchorSection('# Evidence\nold\n# Evidence\nnew', 'evidence-1'), 'new'); });
+test('scope ends at higher heading', () => { assert.equal(section('## Docs Map\nyes\n# Other\nno', 'Docs Map', 2), 'yes'); });
+
+test('mid-round FAIL can be handed off honestly', t => { const r = active(t).run({ handoff: true }); assert.deepEqual(r.handoff.issues, []); assert.equal(exitCode(r), 0); });
+test('handoff does not execute recorded commands', t => { const f = active(t); f.edit('docs/worklog/IMPORT.md', 'node --test import.test.mjs', `touch ${join(f.root, 'MUST_NOT_EXIST')}`); f.run({ handoff: true }); assert.equal(existsSync(join(f.root, 'MUST_NOT_EXIST')), false); });
+test('core never requires a STATE file', t => { const f = fixture(t); assert.equal(exitCode(f.run()), 0); assert.equal(exitCode(f.run({ handoff: true })), 1); });
+test('idle STATE explicitly allows no active feature', t => { const f = active(t); f.edit('docs/STATE.md', '**Feature:** [Import](feature/IMPORT.md)', '**Feature:** none'); assert.equal(exitCode(f.run({ handoff: true })), 0); });
+test('missing next action blocks handoff', t => { const f = active(t); f.edit('docs/STATE.md', '## Next action', '## Not next action'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Next action')); });
+test('missing workspace notes block handoff', t => { const f = active(t); f.edit('docs/STATE.md', '## Working tree', '## Elsewhere'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Working tree')); });
+test('wrong active feature is not guessed from roadmap', t => { const f = active(t); f.edit('docs/STATE.md', '(feature/IMPORT.md)', '(feature/MISSING.md)'); assert(includes(f.run({ handoff: true }).handoff.issues, 'not readable through')); });
+test('wrong round blocks handoff', t => { const f = active(t); f.edit('docs/STATE.md', '**Round:** B2', '**Round:** B999'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Round')); });
+test('index status drift warns normally and fails handoff', t => { const f = active(t); f.edit('docs/ROADMAP.md', '| Building |', '| Done |'); assert.equal(exitCode(f.run()), 0); assert.equal(exitCode(f.run({ handoff: true })), 1); });
+test('index target drift is detected', t => { const f = active(t); f.edit('docs/ROADMAP.md', '| v1 |', '| v2 |'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Target differs')); });
+test('duplicate index rows block handoff', t => { const f = active(t); f.edit('docs/ROADMAP.md', '| Import | v1 | Building | [Import](feature/IMPORT.md) |', '| Import | v1 | Building | [Import](feature/IMPORT.md) |\n| Again | v1 | Building | [Import](feature/IMPORT.md) |'); assert(includes(f.run({ handoff: true }).handoff.issues, 'exactly one')); });
+test('shared machine without snapshot is explicitly incomplete', t => { const f = active(t); f.edit('docs/STATE.md', 'same-worktree', 'shared-snapshot'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Snapshot')); });
+test('shared snapshot declaration is accepted, not claimed proven', t => { const f = active(t); f.edit('docs/STATE.md', '**Workspace:** same-worktree', `**Workspace:** shared-snapshot\n**Snapshot:** commit:${'a'.repeat(40)}`); const r = f.run({ handoff: true }); assert.equal(exitCode(r), 0); assert(includes(r.handoff.notes, 'receiver verification')); });
+test('Done requires scoped PASS evidence and closed rounds', t => { assert.equal(exitCode(done(t).run({ handoff: true })), 0); });
+test('Done cannot retain a failing test', t => { const f = done(t); f.edit('docs/worklog/IMPORT.md', '**Result:** PASS', '**Result:** FAIL'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Done requires PASS')); });
+test('Done cannot retain pending human acceptance', t => { const f = done(t); f.edit('docs/worklog/IMPORT.md', '**Acceptance:** PASS', '**Acceptance:** PENDING'); assert(includes(f.run({ handoff: true }).handoff.issues, 'pending acceptance')); });
+test('Done with an open round fails', t => { const f = done(t); f.edit('docs/blueprint/IMPORT.md', '[x] B2', '[ ] B2'); assert(includes(f.run({ handoff: true }).handoff.issues, 'fully checked')); });
+test('Done without evidence link fails', t => { const f = done(t); f.edit('docs/feature/IMPORT.md', '**Evidence:**', '**Old evidence:**'); assert(includes(f.run({ handoff: true }).handoff.issues, 'verification needs')); });
+test('code edited after PASS makes active evidence stale', t => { const f = done(t); f.write('src/import.mjs', code + '// changed\n'); assert(includes(f.run({ handoff: true }).handoff.issues, 'stale or missing evidence')); });
+test('missing active evidence file is not treated as verified', t => { const f = done(t); rmSync(join(f.root, 'src/import.mjs')); assert(includes(f.run({ handoff: true }).handoff.issues, 'stale or missing')); });
+test('invalid verification timestamp fails', t => { const f = active(t); f.edit('docs/worklog/IMPORT.md', '2026-09-10T01:00:00Z', '2026-02-30T01:00:00Z'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Checked')); });
+test('state and evidence code refs must match', t => { const f = active(t); f.edit('docs/STATE.md', '**Code ref:** working-tree', '**Code ref:** different'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Code ref differs')); });
+test('legacy completed work is not backfilled implicitly', t => { const f = done(t); f.edit('docs/feature/IMPORT.md', '**Handoff:** v1\n', ''); f.edit('docs/feature/IMPORT.md', '**Evidence:**', '**Historical evidence:**'); f.edit('docs/STATE.md', '**Feature:** [Import](feature/IMPORT.md)', '**Feature:** none'); assert.equal(exitCode(f.run({ handoff: true })), 0); });
+test('duplicate metadata blocks handoff rather than choosing silently', t => { const f = active(t); f.edit('docs/feature/IMPORT.md', '**Status:** Building', '**Status:** Building\n**Status:** Done'); assert(includes(f.run({ handoff: true }).handoff.issues, 'duplicate label Status')); });
+test('checker is read-only for code and documentation', t => { const f = active(t); const before = readFileSync(join(f.root, 'docs/STATE.md')); f.run({ handoff: true }); assert.deepEqual(readFileSync(join(f.root, 'docs/STATE.md')), before); assert.equal(readFileSync(join(f.root, 'src/import.mjs'), 'utf8'), code); });
+
+test('CLI help and invalid arguments have distinct exit codes', () => { assert.equal(cli(['--help']).status, 0); assert.equal(cli([]).status, 2); assert.equal(cli(['--unknown']).status, 2); });
+test('CLI JSON is parseable and contains no prose prefix', t => { const r = cli([active(t).root, '--handoff', '--json']); assert.equal(r.status, 0); assert.equal(JSON.parse(r.stdout).metrics.features, 1); });
+test('CLI exposes incomplete scan as exit 2', t => { const f = fixture(t); f.edit('FLOCK.md', 'docs/feature/', 'docs/feature/{a,b}/*.md'); assert.equal(cli([f.root]).status, 2); });
+test('CLI exposes handoff failure as exit 1', t => { assert.equal(cli([fixture(t).root, '--handoff']).status, 1); });
+test('module import has no CLI side effects', () => { const r = spawnSync(process.execPath, ['--input-type=module', '-e', `import ${JSON.stringify(new URL('./check.mjs', import.meta.url).href)}`], { encoding: 'utf8', env }); assert.equal(r.status, 0); assert.equal(r.stdout + r.stderr, ''); });
+test('state must have an explicit Docs Map location', t => { const f = active(t); f.edit('FLOCK.md', '| state | docs/STATE.md | Resume? |', ''); assert(includes(f.run({ handoff: true }).handoff.issues, 'state row')); });
+test('canonical parent label cannot be substituted by a stray backlink', t => { const f = active(t); f.edit('docs/blueprint/IMPORT.md', '**Feature:** [Import](../feature/IMPORT.md)', '**Feature:** [Other](../feature/OTHER.md)\nRelated: [Import](../feature/IMPORT.md)'); f.write('docs/feature/OTHER.md', '# Other'); assert(includes(f.run({ handoff: true }).handoff.issues, 'canonical parent')); });
+test('invalid base commit is not invented from a short hash', t => { const f = active(t); f.edit('docs/STATE.md', 'not-a-git-repo', 'abcdef'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Base commit')); });
+test('duplicate Handoff state declarations fail explicitly', t => { const f = active(t); f.edit('FLOCK.md', '**State:** [State](docs/STATE.md)', '**State:** [State](docs/STATE.md)\n**State:** [Other](docs/OTHER.md)'); assert(includes(f.run({ handoff: true }).handoff.issues, 'duplicate Handoff')); });
+
+test('historical completion is not rewritten to match later code', t => { const f = done(t); f.edit('docs/STATE.md', '**Feature:** [Import](feature/IMPORT.md)', '**Feature:** none'); f.write('src/import.mjs', '// later version\n'); const r = f.run({ handoff: true }); assert.equal(exitCode(r), 0); assert(includes(r.handoff.notes, 'historical completion record')); });
+test('selecting historical work again revalidates its evidence', t => { const f = done(t); f.write('src/import.mjs', '// later version\n'); assert.equal(exitCode(f.run({ handoff: true })), 1); });
+test('unknown handoff extension is not silently treated as v1', t => { const f = active(t); f.edit('docs/feature/IMPORT.md', '**Handoff:** v1', '**Handoff:** v99'); assert(includes(f.run({ handoff: true }).handoff.issues, 'unrecognized Handoff')); });
+test('duplicate Rounds sections cannot hide unfinished work', t => { const f = done(t); f.edit('docs/blueprint/IMPORT.md', '## Definition of Done', '## Rounds\n- [ ] B3 hidden\n\n## Definition of Done'); assert(includes(f.run({ handoff: true }).handoff.issues, 'must be unique')); });
+test('duplicate round IDs cannot select an ambiguous checkpoint', t => { const f = active(t); f.edit('docs/blueprint/IMPORT.md', 'B1 - parser', 'B2 - parser'); assert(includes(f.run({ handoff: true }).handoff.issues, 'must be unique')); });
+test('duplicate State sections are rejected', t => { const f = active(t); f.edit('docs/STATE.md', '## Blockers', '## Next action\nConflicting action.\n\n## Blockers'); assert(includes(f.run({ handoff: true }).handoff.issues, 'duplicate or empty Next action')); });
+test('Target grouping is case-sensitive', t => { const f = active(t); f.edit('docs/ROADMAP.md', '| v1 |', '| V1 |'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Target differs')); });
+test('single-hyphen GFM table separators work', () => { assert.equal(tables('| A | B |\n|-|-|\n| 1 | 2 |').length, 1); });
+test('metadata keys do not alter object prototypes', () => { const obj = labels('**__proto__:** user data').values; assert.equal(Object.getPrototypeOf(obj), Object.prototype); assert.equal(obj.__proto__, 'user data'); });
+test('legacy blueprints alias remains readable', t => { const f = active(t); f.edit('FLOCK.md', '| blueprint |', '| blueprints |'); assert.equal(f.run().metrics.blueprintLinks, 1); });
+test('idle handoff still needs one index table', t => { const f = active(t); f.edit('docs/STATE.md', '**Feature:** [Import](feature/IMPORT.md)', '**Feature:** none'); f.write('docs/ROADMAP.md', '# Missing'); assert(includes(f.run({ handoff: true }).handoff.issues, 'one machine-writable index')); });
+test('NOT-RUN can be an honest handoff without invented hashes', t => { const f = active(t); f.edit('docs/worklog/IMPORT.md', '**Result:** FAIL', '**Result:** NOT-RUN'); f.edit('docs/worklog/IMPORT.md', `| [Parser](../../src/import.mjs) | ${digest} |`, ''); assert.equal(exitCode(f.run({ handoff: true })), 0); });
+test('24-hour overflow timestamp is not accepted as next day', t => { const f = active(t); f.edit('docs/STATE.md', '2026-09-10T01:05:00Z', '2026-09-10T24:00:00Z'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Updated')); });
+test('SHA256 evidence cannot fingerprint its own worklog', t => { const f = done(t); f.edit('docs/worklog/IMPORT.md', '../../src/import.mjs', 'IMPORT.md'); assert(includes(f.run({ handoff: true }).handoff.issues, 'must not fingerprint itself')); });
+test('active Done cannot ignore a newer failing verification', t => {
+  const f = done(t);
+  const log = readFileSync(join(f.root, 'docs/worklog/IMPORT.md'), 'utf8');
+  f.write('docs/worklog/IMPORT.md', log + '\n## Verification newer\n\n**Result:** FAIL\n**Checks:** environment regression observed\n**Checked:** 2026-09-10T02:00:00Z\n**Code ref:** working-tree\n**Acceptance:** PENDING\n');
+  f.edit('docs/STATE.md', '#verification-b2', '#verification-newer');
+  assert(includes(f.run({ handoff: true }).handoff.issues, 'latest State Verification'));
+});
+
+test('worked example hands over a known product failure honestly', () => {
+  const example = resolve(here, '../examples/handoff');
+  const handoff = cli([example, '--handoff', '--json']);
+  assert.equal(handoff.status, 0, handoff.stdout + handoff.stderr);
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const product = spawnSync(process.execPath, ['--test', 'import.demo.test.mjs'], { cwd: example, encoding: 'utf8', env });
+  assert.equal(product.status, 1);
+  assert.match(product.stdout, /Missing expected exception/);
+  assert.match(product.stdout, /# pass 1/);
+  assert.match(product.stdout, /# fail 1/);
+});
