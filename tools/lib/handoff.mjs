@@ -25,7 +25,8 @@ export function checkHandoff(context) {
   const stateLabels = labels(stateText ?? '');
   for (const name of stateLabels.duplicates) fail(stateRef?.path ?? 'STATE', `duplicate label ${name}.`);
   const state = stateLabels.values;
-  const activeRef = state.Feature === 'none' ? undefined : localRef(stateRef?.path ?? 'STATE.md', links(state.Feature)[0]);
+  const idle = /^none$/i.test((state.Feature ?? '').trim());
+  const activeRef = idle ? undefined : localRef(stateRef?.path ?? 'STATE.md', links(state.Feature)[0]);
   if (activeRef) scoped.add(activeRef.path);
   for (const [path, doc] of docs.feature) {
     if (doc.labels.Handoff === 'v1') scoped.add(path);
@@ -46,7 +47,7 @@ export function checkHandoff(context) {
       if (!cleanCommit && (!snapshot || !fs.stat(snapshot.path)?.isFile())) fail(stateFile, 'shared-snapshot needs an existing Snapshot link or commit:<full SHA>.');
       notes.push('Shared snapshot availability and Git identity still require receiver verification.');
     }
-    if (!activeRef && state.Feature !== 'none') fail(stateFile, 'Feature must link to current implementation work, or explicitly be none.');
+    if (!activeRef && !idle) fail(stateFile, 'Feature must link to current implementation work, or explicitly be none.');
     if (activeRef) {
       const feature = docs.feature.get(activeRef.path);
       if (!feature) fail(stateFile, 'active Feature is not readable through the Docs Map.');

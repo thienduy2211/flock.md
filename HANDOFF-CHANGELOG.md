@@ -25,3 +25,18 @@
 Decision (2026-09-10): keep the base standard small and put handoff in an opt-in
 versioned extension. Rejected: external memory, implicit status mutation, automatic
 hash refresh, reading all history at startup, and state files owned by each agent.
+
+## v1 draft - maintenance 2026-09-12
+
+- Add `.gitattributes` (`* text=auto eol=lf`): recorded SHA-256 fingerprints cover
+  raw bytes, so a CRLF checkout (Windows `core.autocrlf`) read honest evidence as
+  stale. Rejected: normalizing line endings inside the checker — a byte-exact
+  fingerprint is the point; documented in docs/CHECKER.md.
+- Add CI running the self-test and example checks on Linux and Windows.
+- `Feature:` idle marker `none` is now matched case-insensitively.
+- Document that opening labels are read up to the first level-2 heading, and mark
+  ADOPTION.md as the archived pre-extension README.
+- Warn when the Docs Map declares multiple `index` locations (only the first is
+  used) instead of silently dropping the rest.
+- An index row linking a directory is a broken-link warning, not an incomplete
+  scan; only genuine read failures still produce exit 2.

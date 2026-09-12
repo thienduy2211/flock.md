@@ -62,6 +62,8 @@ test('prose backlink satisfies base spec, label is only SHOULD', t => { const f 
 test('unreachable mapped worklog still needs a feature backlink', t => { const f = active(t); f.write('docs/worklog/ORPHAN.md', '# Orphan\nNo links.'); assert(includes(f.run().must, 'ORPHAN')); });
 test('house blueprint label is not inferred from filename', t => { const f = active(t); f.edit('docs/feature/IMPORT.md', '**Blueprint:**', '**Implementation plan:**'); assert.equal(f.run().metrics.blueprintLinks, 0); });
 test('out-of-repo index is not replaced with a default', t => { const f = fixture(t); f.edit('FLOCK.md', '[Roadmap](docs/ROADMAP.md)', '[Roadmap](../elsewhere/ROADMAP.md)'); const r = f.run(); assert.equal(exitCode(r), 0); assert(includes(r.warnings, 'outside the repository')); assert(includes(r.lines, 'Index: undeclared')); });
+test('multiple index locations warn rather than silently dropping one', t => { const f = fixture(t); f.edit('FLOCK.md', '| index | docs/ROADMAP.md | Where? |', '| index | docs/ROADMAP.md | Where? |\n| index | docs/OTHER.md | Other |'); f.write('docs/OTHER.md', '# Other\n'); assert(includes(f.run().warnings, 'multiple index')); });
+test('index row linking a directory is a warning, not an incomplete scan', t => { const f = active(t); f.edit('docs/ROADMAP.md', '[Import](feature/IMPORT.md)', '[Folder](feature/)'); const r = f.run(); assert.equal(r.errors.length, 0); assert(includes(r.warnings, 'broken or unsafe Docs link')); });
 test('glob * discovers files rather than a fake directory', t => { const f = active(t); f.edit('FLOCK.md', 'docs/feature/', 'docs/feature/*.md'); assert.equal(f.run().metrics.features, 1); });
 test('glob ** includes root and nested docs', t => { const f = active(t); f.edit('FLOCK.md', 'docs/feature/', 'docs/feature/**/*.md'); f.write('docs/feature/nested/OTHER.md', '# Other\n**Status:** Design'); assert.equal(f.run().metrics.features, 2); });
 test('directory scans recurse and resolve links from each file', t => { const f = active(t); f.write('docs/feature/nested/OTHER.md', '# Other\n**Blueprint:** [Plan](../../blueprint/IMPORT.md)'); assert.equal(f.run().metrics.blueprintLinks, 2); });
@@ -90,6 +92,7 @@ test('mid-round FAIL can be handed off honestly', t => { const r = active(t).run
 test('handoff does not execute recorded commands', t => { const f = active(t); f.edit('docs/worklog/IMPORT.md', 'node --test import.test.mjs', `touch ${join(f.root, 'MUST_NOT_EXIST')}`); f.run({ handoff: true }); assert.equal(existsSync(join(f.root, 'MUST_NOT_EXIST')), false); });
 test('core never requires a STATE file', t => { const f = fixture(t); assert.equal(exitCode(f.run()), 0); assert.equal(exitCode(f.run({ handoff: true })), 1); });
 test('idle STATE explicitly allows no active feature', t => { const f = active(t); f.edit('docs/STATE.md', '**Feature:** [Import](feature/IMPORT.md)', '**Feature:** none'); assert.equal(exitCode(f.run({ handoff: true })), 0); });
+test('idle marker is case-insensitive', t => { const f = active(t); f.edit('docs/STATE.md', '**Feature:** [Import](feature/IMPORT.md)', '**Feature:** None'); assert.equal(exitCode(f.run({ handoff: true })), 0); });
 test('missing next action blocks handoff', t => { const f = active(t); f.edit('docs/STATE.md', '## Next action', '## Not next action'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Next action')); });
 test('missing workspace notes block handoff', t => { const f = active(t); f.edit('docs/STATE.md', '## Working tree', '## Elsewhere'); assert(includes(f.run({ handoff: true }).handoff.issues, 'Working tree')); });
 test('wrong active feature is not guessed from roadmap', t => { const f = active(t); f.edit('docs/STATE.md', '(feature/IMPORT.md)', '(feature/MISSING.md)'); assert(includes(f.run({ handoff: true }).handoff.issues, 'not readable through')); });
@@ -153,6 +156,6 @@ test('worked example hands over a known product failure honestly', () => {
   const product = spawnSync(process.execPath, ['--test', 'import.demo.test.mjs'], { cwd: example, encoding: 'utf8', env });
   assert.equal(product.status, 1);
   assert.match(product.stdout, /Missing expected exception/);
-  assert.match(product.stdout, /# pass 1/);
-  assert.match(product.stdout, /# fail 1/);
+  assert.match(product.stdout, /[ℹ#] pass 1/);
+  assert.match(product.stdout, /[ℹ#] fail 1/);
 });

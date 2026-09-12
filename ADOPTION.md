@@ -1,3 +1,7 @@
+<!-- Archived copy: the pre-extension README, preserved verbatim. Its agent
+prompts point at the upstream repository and predate Handoff v1 — for the
+extension use spec/HANDOFF.md and docs/ADOPT.md, per README.md. -->
+
 # FLOCK.md
 
 > One file that tells humans **and** AI agents where a repo's knowledge lives — and how work flows through it.

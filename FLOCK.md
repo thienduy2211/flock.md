@@ -19,7 +19,7 @@ This repository hosts a standard, not a product requiring a fictional roadmap.
 | changelog | CHANGELOG.md | What changed in the base standard? |
 | extension changelog | HANDOFF-CHANGELOG.md | What changed in optional Handoff v1? |
 
-## Index
+## Changelogs
 
 [HANDOFF-CHANGELOG.md](HANDOFF-CHANGELOG.md) tracks the extension.
 [CHANGELOG.md](CHANGELOG.md) retains the base history.

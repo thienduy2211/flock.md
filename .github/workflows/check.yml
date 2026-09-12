@@ -1,0 +1,27 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  self-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['18.20', '22']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node tools/check.mjs --self-test
+      - run: node tools/check.mjs .
+      - run: node tools/check.mjs examples/minimal
+      - run: node tools/check.mjs examples/full
+      - run: node tools/check.mjs examples/handoff --handoff

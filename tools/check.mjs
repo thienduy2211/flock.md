@@ -67,6 +67,7 @@ export function check(repo, options = {}) {
   const mismatch = (feature, file, message) => { inconsistencies.push({ feature, file, message }); warnings.push(`${file}: ${message}`); };
   const indexLink = links(section(flock, 'Index', 2))[0];
   const mappedIndex = byKind.get('index')?.[0];
+  if ((byKind.get('index') ?? []).length > 1) warnings.push('Docs Map: multiple index locations declared; only the first is used.');
   const indexRef = indexLink ? localRef('FLOCK.md', indexLink) : (mappedIndex && { path: mappedIndex });
   if (indexLink && !indexRef) warnings.push('Index declares a location outside the repository; no default substituted.');
   if (mappedIndex && indexRef && mappedIndex !== indexRef.path) mismatch('*', 'FLOCK.md', 'Index section and Docs Map index disagree; Index section is authoritative.');
@@ -83,7 +84,10 @@ export function check(repo, options = {}) {
       const refs = links(value.Docs).map(l => localRef(indexRef.path, l));
       const features = [...new Set(refs.filter(Boolean).map(r => r.path).filter(p => docs.feature.has(p)))];
       if (!features.length) mismatch('*', indexRef.path, 'index row has no readable mapped feature link.');
-      for (const ref of refs) if (!ref || fs.text(ref.path) === undefined) mismatch(features[0] ?? '*', indexRef.path, 'index row contains a broken or unsafe Docs link.');
+      for (const ref of refs) {
+        const s = ref && fs.stat(ref.path);
+        if (!ref || !s?.isFile() || fs.text(ref.path) === undefined) mismatch(features[0] ?? '*', indexRef.path, 'index row contains a broken or unsafe Docs link.');
+      }
       for (const feature of features) {
         const data = docs.feature.get(feature).labels;
         if (!same(value.Status, data.Status)) mismatch(feature, indexRef.path, `Status differs from ${feature}; the feature owns Status.`);

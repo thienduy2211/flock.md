@@ -1,8 +1,8 @@
 # Checker reference
 
 No install step or package dependencies. Node 18.20+ is the compatibility target;
-local execution was verified on Linux with Node 22.16.0. Other runtimes/OSes need
-their own verification; this is not a cross-platform test claim.
+local execution was verified on Linux with Node 22.16.0, and CI runs the self-test
+and example checks on Linux and Windows with Node 18.20 and 22.
 
 | Command | Scope |
 |---|---|
@@ -39,9 +39,11 @@ NOT-RUN can support continuation, not completion.
 ATX headings, bold opening labels, simple inline links and pipe tables. Machine
 anchors remain fixed; prose may be Vietnamese or another language. Fenced examples,
 HTML comments and indented code are excluded from declarations, tables and progress.
-Pipe cells support escaped pipes. Angle-wrapped destinations may contain spaces;
-encode literal parentheses in a link path. Reference-style links, arbitrary raw
-HTML blocks, setext headings and Markdown plugins are not machine anchors.
+Opening labels are read from the top of the document up to the first level-2 or
+deeper heading, not only the lines directly under the title. Pipe cells support
+escaped pipes. Angle-wrapped destinations may contain spaces; encode literal
+parentheses in a link path. Reference-style links, arbitrary raw HTML blocks,
+setext headings and Markdown plugins are not machine anchors.
 
 Directories recurse. Globs support *, ?, and whole-segment **. Brace/class/extglob
 patterns are rejected. Paths normalize inside the project; encoded backslashes
@@ -53,6 +55,12 @@ Limits per mapped location: 10,000 matched Markdown files, 50,000 visited entrie
 depth 64. Limit per file: 2 MiB. Crossing limits yields incomplete scan, exit 2,
 never silent truncation. Use a trusted stationary checkout: checks do not sandbox
 a malicious process replacing files concurrently.
+
+Fingerprints hash raw file bytes exactly as stored on disk. A checkout that
+converts line endings — `core.autocrlf=true` on Windows producing CRLF — changes
+the bytes and makes recorded SHA-256 evidence read as stale. Pin LF endings in
+`.gitattributes` (`* text=auto eol=lf`) for evidence-covered files rather than
+normalizing inside the checker: a byte-exact fingerprint is the point.
 
 ## What a pass does not prove
 
