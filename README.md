@@ -16,6 +16,7 @@ Core and Flow remain available without the handoff extension.
 | Adopt without moving existing documents | [Adoption guide](docs/ADOPT.md) |
 | See an unfinished feature with a real failing check | [Worked example](examples/handoff/README.md) |
 | Run the checks and understand their limits | [Checker reference](docs/CHECKER.md) |
+| Keep agents from skipping the checkpoint | [Enforcement guide](docs/ENFORCE.md) |
 | Test your actual agents with no old chat | [Fresh-agent drill](docs/HANDOFF-DRILL.md) |
 | Consult the previous adoption/migration prompts | [Preserved previous README](ADOPTION.md) |
 

@@ -21,3 +21,10 @@ Transfer real code together with documents; old chat is not required project sta
 
 No private memory service is required. Keep secrets/customer data out of worklogs.
 Permission to edit is not permission to deploy, delete data, merge or change scope.
+
+Before ending any task, verify mechanically:
+- STATE.md Updated, Round and Working tree reflect the real working tree.
+- The worklog holds this session's outcome (PASS, FAIL or NOT-RUN, with evidence).
+- The blueprint's Rounds checkboxes match the rounds actually closed.
+- `node tools/check.mjs <repo> --handoff` exits 0.
+Claiming completion without these is a protocol violation, not a shortcut.

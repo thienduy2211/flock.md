@@ -40,3 +40,7 @@ hash refresh, reading all history at startup, and state files owned by each agen
   used) instead of silently dropping the rest.
 - An index row linking a directory is a broken-link warning, not an incomplete
   scan; only genuine read failures still produce exit 2.
+- spec/templates/AGENTS.md gains a mechanical end-of-task checklist so a missing
+  checkpoint is a protocol violation, not an oversight. New pre-commit hook
+  template fails commits on broken document checks and warns when the checkpoint
+  file is unstaged; docs/ENFORCE.md explains the four enforcement layers.
