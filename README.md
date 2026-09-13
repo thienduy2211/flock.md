@@ -1,98 +1,105 @@
 # FLOCK.md
 
-A document-first project handoff for humans and interchangeable coding agents.
-The project owns its requirements, decisions, checkpoint and evidence. No memory
-server, vector database, agent SDK or cloud account is required.
+A small project contract for humans and interchangeable coding agents.
+Code owns implemented behavior. Project files retain approved intent, decisions,
+the current handoff and verification evidence that code alone cannot establish.
+No memory server, vector database, agent SDK or cloud account is required.
 
 **Base: Flock 0.3 draft. Optional extension: Handoff v1 draft.**
-Core and Flow remain available without the handoff extension.
+Do not generate a parallel description of the codebase merely to adopt Flock.
+
+## Choose the smallest useful adoption
+
+| Situation | Use |
+|---|---|
+| Existing docs, small fixes or no long-running implementation | Core: a Docs Map; reuse existing records |
+| Work benefits from explicit requirements and implementation rounds | Flow: feature, blueprint and worklog |
+| One person changes agents or resumes across sessions | Flow + Handoff: one checkpoint and linked evidence |
+
+These are existing profiles, not new mandatory document packs. A separate BRD,
+PRD, architecture manual or code-standards file is not required merely because
+an agent is used. See [right-sized adoption](docs/ADOPT.md).
 
 ## Start here
 
 | Need | Read |
 |---|---|
 | Understand Core / Flow | [Base specification](spec/SPEC.md) |
-| Continue work with a different agent | [Handoff v1](spec/HANDOFF.md) |
-| Adopt without moving existing documents | [Adoption guide](docs/ADOPT.md) |
+| Continue work with another agent | [Handoff v1](spec/HANDOFF.md) |
+| Adopt and keep documentation small | [Adoption guide](docs/ADOPT.md) |
 | See an unfinished feature with a real failing check | [Worked example](examples/handoff/README.md) |
-| Run the checks and understand their limits | [Checker reference](docs/CHECKER.md) |
-| Keep agents from skipping the checkpoint | [Enforcement guide](docs/ENFORCE.md) |
-| Test your actual agents with no old chat | [Fresh-agent drill](docs/HANDOFF-DRILL.md) |
+| Check records and understand what a pass means | [Checker reference](docs/CHECKER.md) |
+| Block incomplete staged handoffs before committing | [Enforcement guide](docs/ENFORCE.md) |
+| Measure actual agents, quality and total cost | [Fresh-agent drill](docs/HANDOFF-DRILL.md) |
 | Consult the previous adoption/migration prompts | [Preserved previous README](ADOPTION.md) |
-
-ADOPTION.md preserves the previous README verbatim, including its upstream
-references. Those prompts predate this extension. For Handoff v1, use the local
-spec/HANDOFF.md and docs/ADOPT.md, not an upstream version lacking the extension.
 
 ## One fact, one owner
 
 | Question | Canonical location |
 |---|---|
-| How should agents work and verify changes? | Common agent instructions, normally AGENTS.md |
-| Where do project documents live? | FLOCK.md |
-| What is approved, out of scope, and the current Status/Target? | Feature document |
-| How is it built; which rounds are complete? | Blueprint document |
-| What happened, failed or proved completion? | Worklog document |
-| Where exactly do I resume now? | One declared checkpoint, normally docs/STATE.md |
-| What work exists? | Roadmap: an index mirroring the feature, not another authority |
+| How should agents work and verify changes? | Common instructions, normally AGENTS.md |
+| Where are relevant project documents? | FLOCK.md |
+| What is approved, out of scope, and its Status/Target? | Feature |
+| Which implementation decisions and rounds are active? | Blueprint |
+| What happened, failed or was verified? | Worklog |
+| Where exactly do I resume now? | One declared checkpoint |
+| What work exists? | Roadmap: a mirror of the feature, not another authority |
 
-Code describes what **is** implemented. Approved requirements describe what
-**must be** implemented. Record discrepancies; never change acceptance criteria
-merely to make incorrect code appear correct.
+Code describes what **is** implemented; approved requirements describe what
+**must be** implemented. Tests check selected examples of that contract, not every
+business intention. Record discrepancies; never rewrite acceptance criteria to
+make incorrect code appear correct. Prefer links to code, tests and configuration
+over prose that duplicates them. Omit optional mirrored Status labels in new
+blueprints/worklogs rather than create more fields to maintain.
 
 ## Workflow
 
-Read the common instructions -> FLOCK -> current state -> relevant feature,
-blueprint and worklog evidence. Reconcile actual branch, commit, existing edits
-and required services before writing. Preserve unfinished work.
+Read common instructions -> FLOCK -> checkpoint when declared -> relevant active
+records and evidence. Reconcile actual branch, commit, existing edits and required
+services before writing. Do not load every specification or worklog at startup.
 
-Work within approved scope. Keep round progress only in the blueprint. Checkpoint
-after meaningful progress, before risky work, and before handing over; do not wait
-for an entire round to end. Record PASS, FAIL or NOT-RUN honestly. Keep work in
-Review while required acceptance is pending. Transfer code together with the docs.
+Implement approved scope. Under Handoff, checkpoint meaningful progress and record
+PASS, FAIL or NOT-RUN honestly. Keep required acceptance in Review. Select the
+feature through its final verification before clearing State. Transfer actual code
+with the docs; a summary cannot transfer uncommitted files or runtime services.
 
-A known failing test can be handed over. That means the failure and next action
-are clear, not that the feature is Done. Select the feature in State and run the
-handoff checks before closing it. Later archived evidence remains historical;
-it must not be rewritten just because another feature changes the same file.
+Keep durable requirements and decisions. A completed plan and its worklog are
+historical, not a second live description of today's code. Do not keep refreshing
+old plans or old evidence; append new verification when work is reopened.
 
 ## Check
 
-The optional checker uses only Node built-ins. No npm install is needed.
-Node 18.20+ is the compatibility target; see the verified runtime in the checker
-reference. From a checkout of this repository:
+Node 18.20+ is the compatibility target. No npm install is needed.
 
 ```sh
 node tools/check.mjs /path/to/project
 node tools/check.mjs /path/to/project --handoff
-node tools/check.mjs /path/to/project --handoff --json
+node tools/check-staged.mjs /path/to/project
 node tools/check.mjs --self-test
 ```
 
-The base command checks Core/Flow. `--handoff` explicitly selects the stronger
-contract. Exit 0 means the selected document checks passed; 1 is a contract
-violation; 2 is usage trouble or an incomplete scan. Normal checks only read files:
-no Git command, product command, model call, network request or document mutation.
+The normal checker reads local files only: no Git, model, network or product command.
+The separate staged gate explicitly reads local Git index objects, selects Handoff
+only when declared, and requires the active checkpoint among staged changes.
+It never stages files, checks out code, runs filters or refreshes hashes. Git must
+support `--no-lazy-fetch`; unavailable objects or tools block the gate, not trigger
+a download or a silent pass. Both commands support `--json`; see the reference.
 
-A checker pass does not prove product correctness, approval or evidence coverage.
-Hashes only detect changes to listed files. The receiving agent must inspect the
-real diff and run the project's appropriate checks.
+**A document-check pass is not a product-test pass or proof of approval.**
+Run the project's real checks separately. Hashes cover only the files listed;
+unknown requirements, omitted dependencies and false reports still need review.
+No token savings or universal agent compatibility are claimed without measurement.
 
-## Keep it small
+## Agent entrypoints and history
 
-Reuse existing paths and a working checkpoint file. Do not create parallel STATE,
-HANDOFF, MEMORY and TASKS records for the same work. Small fixes can reuse an
-existing feature. Read relevant history on demand, not all worklogs at startup.
-One writer at a time is assumed; distributed scheduling is outside scope.
-
-Agent-specific entrypoints should point to the common instructions. The included
-CLAUDE.md uses `@AGENTS.md`; for another agent, use its supported entrypoint or
-explicitly ask it to read AGENTS.md. Verify in a fresh session rather than promising
-universal filename support. See the [official file import guide](https://code.claude.com/docs/en/memory).
-
-## History and attribution
+Keep tool-specific entrypoints as pointers to common instructions. The included
+CLAUDE.md uses `@AGENTS.md`; other agents need their supported entrypoint or an
+explicit request to read AGENTS.md. Verify this in a fresh session. One writer at
+a time is assumed; distributed agent scheduling is outside scope.
 
 Flock originated with [RepoFlock](https://github.com/repoflock/flock.md).
-[Base history](CHANGELOG.md), the original specification, and its
+[Base history](CHANGELOG.md), the original specification and its
 [CC BY 4.0 license](LICENSE) are preserved. This fork's optional extension is
-recorded separately in [HANDOFF-CHANGELOG.md](HANDOFF-CHANGELOG.md).
+recorded in [HANDOFF-CHANGELOG.md](HANDOFF-CHANGELOG.md).
+ADOPTION.md preserves the previous README and its upstream references; those
+prompts predate Handoff v1. Use the local extension and adoption guide for Handoff.

@@ -33,3 +33,22 @@ Repeat with the actual agents intended for use. Record versions, outcomes, repea
 questions, wrong-next-step incidents and false Done claims. Measure before claiming
 token savings or universal portability. An interrupted session may lose facts never
 saved anywhere; documents do not reconstruct those facts magically.
+
+## Compare value rather than count files
+
+Use representative tiny fixes, new behavior and interrupted handoffs. Compare
+short instructions + code/tests with targeted Flock records; optionally test a
+full-doc-context variant to expose unnecessary reading. Hold the starting commit,
+model version, tools and task budget fixed. Give each variant the same approved
+business facts (in a compact task packet or linked feature), not an easier scope.
+Alternate run order and repeat tasks; record variability rather than one best run.
+
+Measure total input/output tokens and elapsed work including document creation,
+maintenance, retries, review and correction. Also record correct completion,
+first useful action, repeated questions, reversed decisions and false Done claims.
+A shorter first response is not evidence of a lower total cost.
+
+Retain a document or process step only when its added information, risk reduction
+or measured handoff value justifies its cost. Keep approval and safety boundaries
+regardless of speed. Record agent versions and results before making comparative
+claims; this procedure is not a report that such an experiment has been run.

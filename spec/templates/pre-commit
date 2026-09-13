@@ -1,28 +1,16 @@
 #!/bin/sh
-# Flock pre-commit hook: refuse to commit past a broken document contract,
-# and remind when the checkpoint file is not among the staged changes.
-#
-# Install:  cp spec/templates/pre-commit .git/hooks/pre-commit
-# Requires: Node.js and a reachable checker — vendor tools/ into the project
-#           or point FLOCK_CHECKER at a checkout of the standard.
-# For a core-only adoption (no Handoff section), drop the --handoff flag.
+# Run from Git's working-tree root. Installation and migration: docs/ENFORCE.md.
+# The gate reads staged Git objects, never checks out or stages working files.
 
-CHECKER="${FLOCK_CHECKER:-tools/check.mjs}"
-STATE_GLOB="${FLOCK_STATE:-STATE.md}"
+GATE="${FLOCK_GATE:-tools/check-staged.mjs}"
 
-if [ ! -f "$CHECKER" ]; then
-  echo "flock: checker not found at $CHECKER; set FLOCK_CHECKER or vendor tools/" >&2
-  exit 0
-fi
-
-node "$CHECKER" . --handoff || {
-  echo "flock: document checks failed — reconcile STATE.md / worklog first" >&2
+if ! command -v node >/dev/null 2>&1; then
+  echo "flock: Node.js is required; commit blocked" >&2
   exit 1
-}
-
-staged=$(git diff --cached --name-only)
-if [ -n "$staged" ] && ! printf '%s\n' "$staged" | grep -q "$STATE_GLOB"; then
-  echo "flock: checkpoint file not staged — if progress was made, update STATE.md" >&2
+fi
+if [ ! -f "$GATE" ]; then
+  echo "flock: staged gate not found at $GATE; vendor tools/ or set FLOCK_GATE; commit blocked" >&2
+  exit 1
 fi
 
-exit 0
+exec node "$GATE" .

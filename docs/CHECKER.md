@@ -9,7 +9,8 @@ and example checks on Linux and Windows with Node 18.20 and 22.
 | `node tools/check.mjs PROJECT` | Base Core/Flow, counts and warnings |
 | `node tools/check.mjs PROJECT --handoff` | Also the optional Handoff v1 contract |
 | `node tools/check.mjs PROJECT --json` | Structured result without a prose prefix |
-| `node tools/check.mjs --self-test` | Regression tests in disposable local fixtures |
+| `node tools/check.mjs --self-test` | Filesystem and staged-gate tests in disposable fixtures |
+| `node tools/check-staged.mjs PROJECT [--json]` | Explicit Git-index check and active-checkpoint staging policy |
 
 Exit 0: selected document checks passed. Exit 1: base MUST or selected handoff
 violation. Exit 2: invalid usage, unreadable/unsafe input or incomplete scan.
@@ -75,3 +76,32 @@ Self-tests create and remove temporary fixtures. The teaching example includes a
 intentional product failure; the regression suite asserts that expected failure.
 It is not an accidentally broken checker or a completed product. Read the
 [fresh-agent drill](HANDOFF-DRILL.md) before claiming real-agent portability.
+
+## Separate staged gate - 2026-09-13
+
+The staged gate uses the same reader and contracts over Git index objects. It
+requires local Git supporting `--no-lazy-fetch` (verified here with Git 2.47.3).
+The normal checker still needs no Git. The expanded self-test now requires Git
+and invokes real commits only in disposable fixtures; CI's existing self-test step
+includes these new regressions without requiring another workflow.
+
+Only fixed read-only Git commands run: resolve the root/HEAD, enumerate index and
+staged names, and read local blob sizes/bytes. No shell command from project prose,
+checkout, content filter, model, network request or automatic staging is used.
+Missing objects do not trigger lazy fetching. Dirty and untracked work is preserved.
+Handoff selection and the exact checkpoint path come from staged FLOCK.md, not an
+environment filename pattern. Active work requires a changed, staged checkpoint;
+Core-only and idle work do not require synthetic checkpoint updates.
+
+The API `checkStaged(repo, options)` adds `staged` diagnostics; `stagedExitCode`
+returns 0 for selected checks passing, 1 for a contract/staging violation and 2
+for usage/incomplete reads. Existing scan limits apply. Extra index bounds are
+16 MiB metadata and 100,000 entries (`maxIndexBytes`, `maxIndexEntries` in the API).
+Changed index/HEAD during validation fails; this remains a stationary-checkout
+check, not a lock or transaction. Only the trusted gate's own backend is injected
+via `options.fileSystem`; no filesystem implementation is loaded from a document.
+
+Hashes compare exact staged blob bytes. Keep LF checkout rules consistent when
+recording evidence from working files. A staged pass does not prove the working
+tree passes, that any product tests ran, that every changed dependency was listed,
+or that an earlier completion transition was verified. See [enforcement](ENFORCE.md).

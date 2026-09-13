@@ -28,11 +28,13 @@ function globRegex(glob) {
   return new RegExp(`${pattern}$`);
 }
 
-export function reader(root, errors, limits = {}) {
+// The staged gate supplies a read-only Git-index backend; normal checks use disk.
+const disk = { lstatSync, readFileSync, readdirSync, realpathSync };
+export function reader(root, errors, limits = {}, io = disk) {
   const maxFiles = limits.maxFiles ?? 10000, maxBytes = limits.maxBytes ?? 2097152;
   const maxEntries = limits.maxEntries ?? 50000, maxDepth = limits.maxDepth ?? 64;
   let base;
-  try { base = realpathSync(resolve(root)); } catch (e) { errors.push(`Repository unavailable: ${e.code ?? e.message}`); }
+  try { base = io.realpathSync(resolve(root)); } catch (e) { errors.push(`Repository unavailable: ${e.code ?? e.message}`); }
   const report = msg => { if (!errors.includes(msg)) errors.push(msg); };
   const cache = new Map();
   function stat(rel) {
@@ -42,7 +44,7 @@ export function reader(root, errors, limits = {}) {
     let abs = base, s;
     try {
       for (const part of rel.split('/')) {
-        abs = join(abs, part); s = lstatSync(abs);
+        abs = join(abs, part); s = io.lstatSync(abs);
         if (s.isSymbolicLink()) { report(`Symlink not followed: ${rel}`); return undefined; }
       }
       return s;
@@ -53,7 +55,7 @@ export function reader(root, errors, limits = {}) {
     const s = stat(rel); if (!s) return undefined;
     if (!s.isFile()) { report(`Not a regular file: ${rel}`); return undefined; }
     if (s.size > maxBytes) { report(`File exceeds ${maxBytes} bytes: ${rel}`); return undefined; }
-    try { const value = readFileSync(join(base, rel)); cache.set(rel, value); return value; }
+    try { const value = io.readFileSync(join(base, rel)); cache.set(rel, value); return value; }
     catch (e) { report(`Cannot read ${rel}: ${e.code ?? e.message}`); return undefined; }
   }
   function text(rel) { return bytes(rel)?.toString('utf8'); }
@@ -81,7 +83,7 @@ export function reader(root, errors, limits = {}) {
       }
       if (!s.isDirectory()) { report(`Unsupported filesystem entry: ${p}`); return; }
       let entries;
-      try { entries = readdirSync(p === '.' ? base : join(base, p)).sort(); }
+      try { entries = io.readdirSync(p === '.' ? base : join(base, p)).sort(); }
       catch (e) { report(`Cannot list ${p}: ${e.code ?? e.message}`); return; }
       for (const entry of entries) {
         if (['.git', 'node_modules', '.venv'].includes(entry)) continue;

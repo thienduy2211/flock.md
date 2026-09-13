@@ -14,7 +14,7 @@ const headers = ['Item|Target|Status|Docs', 'Item|Status|Docs'];
 export function check(repo, options = {}) {
   const result = { lines: [], must: [], warnings: [], errors: [], handoff: { enabled: Boolean(options.handoff), issues: [], notes: [], scoped: [] }, metrics: {} };
   const { lines, must, warnings, errors, metrics } = result;
-  const fs = reader(repo, errors, options.limits);
+  const fs = reader(repo, errors, options.limits, options.fileSystem);
   const flock = fs.text('FLOCK.md');
   if (flock === undefined) {
     if (!errors.length) must.push('FLOCK.md is missing at the repository root (SPEC 1).');
@@ -150,7 +150,7 @@ function main(args) {
   if (args.length === 1 && ['--help', '-h'].includes(args[0])) { console.log(usage); return 0; }
   if (args.length === 1 && args[0] === '--self-test') {
     const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
-    const run = spawnSync(process.execPath, ['--test', resolve(dirname(fileURLToPath(import.meta.url)), 'check.test.mjs')], { stdio: 'inherit', env });
+    const run = spawnSync(process.execPath, ['--test', ...['check.test.mjs', 'staged.test.mjs'].map(name => resolve(dirname(fileURLToPath(import.meta.url)), name))], { stdio: 'inherit', env });
     if (run.error) console.error(run.error.message);
     return run.status ?? 2;
   }

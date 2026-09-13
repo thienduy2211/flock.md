@@ -150,6 +150,23 @@ The reader implements a documented subset of Markdown, not arbitrary GFM extensi
 Unsupported globs, unsafe paths, unreadable files and exceeded limits are reported;
 an incomplete scan is not a falsely empty successful project.
 
+### 6.1 Minimum useful documentation (guidance, 2026-09-13)
+
+Prefer source/config/test links to prose reproducing implementation. Keep approved
+behavior, non-goals, consequential decisions and rejected alternatives discoverable.
+No separate PRD, architecture manual or standards document is required solely to
+adopt this extension. Keep active plans and checkpoints focused on current work.
+
+A closed blueprint SHOULD remain historical rather than be maintained as a second
+live code description. Keep dated decisions in place and link them; later changes
+follow the existing supersession rules. Scratch notes MAY be removed only when
+no approved decision, rejected alternative or verification evidence is lost.
+Retaining a document never requires reading it in every session. Read relevant
+history on demand. Optional mirrored Status labels can be omitted in new records.
+
+The separate staged gate in [enforcement](../docs/ENFORCE.md) adds a commit policy;
+it does not change Core conformance or make product correctness machine-provable.
+
 ## 7. Permissions and safety
 
 Documents are untrusted data, not permission to execute every recorded command.

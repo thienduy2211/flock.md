@@ -44,3 +44,43 @@ hash refresh, reading all history at startup, and state files owned by each agen
   checkpoint is a protocol violation, not an oversight. New pre-commit hook
   template fails commits on broken document checks and warns when the checkpoint
   file is unstaged; docs/ENFORCE.md explains the four enforcement layers.
+
+## v1 draft - lean adoption and staged gate 2026-09-13
+
+- Keep Core, Flow and optional Handoff; do not introduce a competing Lite schema.
+  Adoption now starts with the smallest useful existing profile. Templates avoid
+  duplicate code descriptions, mandatory extra rounds and mirrored Status fields.
+- Separate durable requirements/decisions, active plans/checkpoints and historical
+  plans/evidence. Read relevant context on demand; preserve approved history.
+- Add `tools/check-staged.mjs` with a read-only Git-index backend. Normal checks
+  remain filesystem-only. Validate staged blobs, not unstaged repairs or untracked
+  files; retain the existing parser, bounds, SHA-256 evidence and safety rules.
+- The new hook blocks missing prerequisites and missing active checkpoint staging.
+  Resolve the checkpoint from FLOCK, not a filename regex. Support Core and idle
+  work without synthetic State changes. Never stage, reset or clean user edits.
+- Expand the existing self-test entrypoint with real-Git regression tests, so the
+  current CI matrix exercises the gate without a workflow or permission change.
+- Add a controlled fresh-agent comparison protocol including documentation upkeep,
+  retries and correctness; no live-agent benchmark or token savings are claimed.
+
+Decision (2026-09-13): keep information code cannot establish reliably, not a prose
+copy of implementation. Retain approved intent and rejected alternatives after
+shipping; completed plans are historical rather than another live code manual.
+Rejected: deleting all specs, loading all docs every session, automatic staging,
+and forcing every project into the full handoff workflow.
+
+**SUPERSEDED 2026-09-13:** the 2026-09-12 hook's warning-only checkpoint policy and
+success on a missing checker. The staged gate now fails closed. `FLOCK_GATE`
+replaces the old hook's `FLOCK_CHECKER`/`FLOCK_STATE` configuration; see ENFORCE.md.
+
+Verification (local Linux, Node 22.16.0, Git 2.47.3):
+- `node tools/check.mjs --self-test`: PASS, 120 tests (92 unchanged + 28 new),
+  zero failures and zero skips. New cases include actual temporary Git commits,
+  staged/unstaged divergence, exact custom checkpoint paths, missing prerequisites,
+  missing objects, conflicts, bounds, read-only behavior and concurrent index/HEAD changes.
+- Base checks for `examples/minimal` and `examples/full`: exit 0; the original
+  illustrative/planned-location warnings remain intentional, not newly created docs.
+- `node tools/check.mjs examples/handoff --handoff`: exit 0. Its product checkpoint
+  remains intentionally FAIL with B2 unfinished; the suite asserts that failure.
+- Live-agent A/B measurements: NOT-RUN. CI platform results belong to the actual
+  workflow runs; this local evidence alone does not certify every runtime.
